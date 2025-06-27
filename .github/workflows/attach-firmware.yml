@@ -15,7 +15,7 @@ jobs:
     - name: Upload firmware.bin to Release
       uses: softprops/action-gh-release@v1
       with:
-        files: firmware/firmware.bin
+        files: firmware.bin
         tag_name: ${{ github.event.release.tag_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
