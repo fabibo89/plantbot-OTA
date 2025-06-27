@@ -1,0 +1,21 @@
+name: Upload existing firmware.bin on release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Upload firmware.bin to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: firmware.bin
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
