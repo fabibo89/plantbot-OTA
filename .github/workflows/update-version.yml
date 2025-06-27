@@ -13,16 +13,19 @@ jobs:
       uses: actions/checkout@v3
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0  # wichtig für Commit & Push
 
-    - name: Extract Release Tag
+    - name: Check out correct branch
+      run: git checkout main
+
+    - name: Update version.txt
       run: echo "${{ github.event.release.tag_name }}" > version.txt
 
     - name: Commit & Push version.txt
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git checkout master  # ← Wichtig: richtigen Branch auschecken
         git add version.txt
         git commit -m "🔄 Auto-update version.txt to ${{ github.event.release.tag_name }}"
-        git push origin master
+        git push origin main
 
