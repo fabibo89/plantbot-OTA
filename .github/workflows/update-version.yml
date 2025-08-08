@@ -1,35 +1,30 @@
-name: Update Manifest Version
+name: Update version.txt on release
 
 on:
   release:
     types: [published]
 
 jobs:
-  update-manifest-version:
+  update-version:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0  # wichtig für Commit & Push
 
-      - name: Get version from tag
-        id: get_version
-        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    - name: Check out correct branch
+      run: git checkout main
 
-      - name: Update manifest.json version
-        run: |
-          jq --arg ver "${{ steps.get_version.outputs.version }}" '.version = $ver' custom_components/plantbot/manifest.json > custom_components/plantbot/manifest_tmp.json
-          mv custom_components/plantbot/manifest_tmp.json custom_components/plantbot/manifest.json
+    - name: Update version.txt
+      run: echo "${{ github.event.release.tag_name }}" > version.txt
 
-      - name: Commit changes
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          git add custom_components/plantbot/manifest.json
-          git commit -m "Update manifest version to ${{ steps.get_version.outputs.version }}" || echo "No changes to commit"
-
-      - name: Push changes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-          git push origin HEAD:main
+    - name: Commit & Push version.txt
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add version.txt
+        git commit -m "🔄 Auto-update version.txt to ${{ github.event.release.tag_name }}"
+        git push origin main
