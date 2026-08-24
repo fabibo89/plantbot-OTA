@@ -1,0 +1,40 @@
+<html>
+  <head>
+    <title id="title">Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+      body {
+        background-color: #f7f7f7;
+      }
+      #spacer_50 {
+        height: 50px;
+      }
+    </style>
+  </head>
+  <body>
+    <center>
+      <h2 id="text">text</h2>
+      <div id="spacer_50"></div>
+      <button onclick="window.location.href='/manager';">to homepage</button>
+    </center>
+
+    <script>
+        var status = '%status%';
+       
+        window.addEventListener("load", (event) => {
+            if(status) {
+                document.getElementById('title').innerHTML ="Update successful";
+                document.getElementById('text').innerHTML = "The update was successful.";
+            }
+            else{
+                document.getElementById('title').innerHTML ="Update unsuccessful";
+                document.getElementById('text').innerHTML = "The update has failed.";
+            }
+        });
+
+    </script>
+
+  </body>
+</html>

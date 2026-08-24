@@ -1,0 +1,72 @@
+body {
+  background-color: #f7f7f7;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.manager-page {
+  background: #f4f6f8;
+}
+
+.manager-container {
+  max-width: 960px;
+}
+
+.manager-page .card {
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.manager-page .card-header {
+  background: #fff;
+  font-weight: 600;
+  border-bottom: 1px solid #eceff1;
+}
+
+.manager-page .table thead th {
+  border-top: none;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6c757d;
+}
+
+.manager-page .progress-bar {
+  background-color: #2e7d32;
+}
+
+.upload-status {
+  min-height: 1.2em;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.upload-dir-custom {
+  display: none;
+}
+
+#format_notice {
+  color: #c62828;
+}
+
+/* Legacy edit page */
+#submit {
+  width: 120px;
+}
+
+#edit_path,
+#delete_path {
+  width: 100%;
+  max-width: 100%;
+}
+
+#spacer_50 {
+  height: 50px;
+}
+
+#spacer_20 {
+  height: 20px;
+}
+
+#first_td_th {
+  width: auto;
+}

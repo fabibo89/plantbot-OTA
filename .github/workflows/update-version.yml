@@ -4,27 +4,71 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+
 jobs:
   update-version:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0  # wichtig für Commit & Push
-
-    - name: Check out correct branch
-      run: git checkout main
+        fetch-depth: 0
+        ref: main
 
     - name: Update version.txt
-      run: echo "${{ github.event.release.tag_name }}" > version.txt
+      env:
+        TAG: ${{ github.event.release.tag_name }}
+        IS_PRERELEASE: ${{ github.event.release.prerelease }}
+      run: |
+        python3 << 'PY'
+        import os
+        from pathlib import Path
+
+        path = Path("version.txt")
+        tag = os.environ["TAG"].strip()
+        is_pre = os.environ["IS_PRERELEASE"].lower() == "true"
+
+        release = None
+        prerelease = None
+        if path.exists():
+            for raw in path.read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("release:"):
+                    release = line.split(":", 1)[1].strip()
+                elif line.startswith("pre-release:"):
+                    prerelease = line.split(":", 1)[1].strip()
+                elif release is None:
+                    # Legacy single-line format
+                    release = line
+
+        if is_pre:
+            prerelease = tag
+        else:
+            release = tag
+
+        lines = []
+        if release:
+            lines.append(f"release:{release}")
+        if prerelease:
+            lines.append(f"pre-release:{prerelease}")
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print(path.read_text(encoding="utf-8"))
+        PY
 
     - name: Commit & Push version.txt
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add version.txt
-        git commit -m "🔄 Auto-update version.txt to ${{ github.event.release.tag_name }}"
+        if git diff --staged --quiet; then
+          echo "version.txt unchanged"
+          exit 0
+        fi
+        git commit -m "Auto-update version.txt for ${{ github.event.release.tag_name }}"
         git push origin main

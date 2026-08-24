@@ -1,0 +1,39 @@
+# Proposed: .github/workflows/attach-firmware.yml
+#
+# Die echte Workflow-Datei im Repo ist root-owned und konnte hier nicht
+# überschrieben werden. Inhalt unten nach `.github/workflows/attach-firmware.yml`
+# kopieren (sudo falls nötig).
+#
+# Hängt firmware.bin + spiffs-data.zip an das Release.
+# Release-Notes unter docs/releases/ werden NICHT als Asset angehängt
+# und sind per export-ignore auch nicht in der Source-Zip.
+
+name: Upload existing firmware.bin on release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Pack SPIFFS web files
+      run: |
+        cd spiffs-data
+        zip -r ../spiffs-data.zip .
+        ls -lh ../spiffs-data.zip
+
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          firmware.bin
+          spiffs-data.zip
+        tag_name: ${{ github.event.release.tag_name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
