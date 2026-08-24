@@ -1,8 +1,11 @@
-name: Upload existing firmware.bin on release
+name: Upload firmware and SPIFFS data on release
 
 on:
   release:
     types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   upload:
@@ -10,13 +13,20 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Upload firmware.bin to Release
-      uses: softprops/action-gh-release@v1
+    - name: Pack SPIFFS web files
+      run: |
+        cd spiffs-data
+        zip -r ../spiffs-data.zip .
+        ls -lh ../spiffs-data.zip
+
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v2
       with:
-        files: firmware.bin
+        files: |
+          firmware.bin
+          spiffs-data.zip
         tag_name: ${{ github.event.release.tag_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
