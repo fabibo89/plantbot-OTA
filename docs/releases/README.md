@@ -9,7 +9,13 @@ archives** via `.gitattributes`:
 docs/releases/** export-ignore
 ```
 
-When publishing a GitHub Release, attach only:
+Naming: use the GitHub tag as filename, e.g. tag `v1.3.0-alpha` → `v1.3.0-alpha.md`.
+
+On release publish, workflow `fill-release-notes.yml` copies that file into the
+GitHub Release body (`gh release edit … --notes-file`). If no matching file
+exists, the body is left unchanged.
+
+When publishing a GitHub Release, attach only (via `attach-firmware.yml`):
 
 - `firmware.bin`
 - `spiffs-data.zip` (packed by CI from `/spiffs-data`)
