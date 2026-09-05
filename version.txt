@@ -1,2 +1,2 @@
 release:v1.2.4
-pre-release:v1.3.0-gamma
+pre-release:v1.3.0-delta
