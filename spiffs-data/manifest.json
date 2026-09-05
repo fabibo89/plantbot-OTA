@@ -1,0 +1,15 @@
+{
+  "files": [
+    "Updater/config.html",
+    "Updater/control.html",
+    "Updater/edit.html",
+    "Updater/failed.html",
+    "Updater/landingpage.html",
+    "Updater/manager.html",
+    "Updater/manager_script.js",
+    "Updater/modbus.html",
+    "Updater/ok.html",
+    "Updater/style.css",
+    "Updater/update.html"
+  ]
+}

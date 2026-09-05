@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>PlantBot Modbus</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background: #f7f7f7; }
+    .card { margin-bottom: 1rem; }
+    .status-bar { font-size: 0.9rem; color: #555; }
+    .addr-badge {
+      display: inline-block;
+      min-width: 2.5rem;
+      padding: 0.35rem 0.6rem;
+      margin: 0.2rem;
+      border: 1px solid #ccc;
+      border-radius: 0.25rem;
+      background: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .addr-badge:hover { border-color: #007bff; }
+    .addr-badge.active { background: #007bff; color: #fff; border-color: #007bff; }
+    .muted { color: #888; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h3 mb-0">Modbus</h1>
+      <div>
+        <a class="btn btn-outline-secondary btn-sm" href="/">Zurueck</a>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="refresh-btn">Aktualisieren</button>
+      </div>
+    </div>
+
+    <div class="alert alert-info status-bar" id="status-bar">Lade…</div>
+    <div class="alert d-none" id="action-status" role="alert"></div>
+
+    <div class="card">
+      <div class="card-header">Bekannte Sensoren</div>
+      <div class="card-body">
+        <div id="nodes-list" class="muted">Noch keine Daten</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Bus scannen</div>
+      <div class="card-body">
+        <p class="muted mb-2">Sucht Adressen 1…max. Kann einige Sekunden dauern.</p>
+        <div class="form-row align-items-end">
+          <div class="form-group col-6 col-md-3 mb-2">
+            <label for="scan-max">Max. Adresse</label>
+            <input class="form-control" type="number" id="scan-max" min="1" max="32" value="8">
+          </div>
+          <div class="form-group col-auto mb-2">
+            <button type="button" class="btn btn-primary" id="scan-btn">Scannen</button>
+          </div>
+        </div>
+        <div id="scan-result" class="mt-2"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Adresse aendern</div>
+      <div class="card-body">
+        <p class="muted mb-3">Schreibt die neue Slave-Adresse auf den Sensor (Register 0x07D0).</p>
+        <form id="change-form">
+          <div class="form-row">
+            <div class="form-group col-6 col-md-3">
+              <label for="old-addr">Aktuelle Adresse</label>
+              <input class="form-control" type="number" id="old-addr" min="1" max="247" required>
+            </div>
+            <div class="form-group col-6 col-md-3">
+              <label for="new-addr">Neue Adresse</label>
+              <input class="form-control" type="number" id="new-addr" min="1" max="247" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-warning" id="change-btn">Adresse schreiben</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showAction(type, message) {
+      const el = document.getElementById("action-status");
+      el.className = "alert alert-" + type;
+      el.textContent = message;
+      el.classList.remove("d-none");
+    }
+
+    function setOldFromBadge(addr) {
+      document.getElementById("old-addr").value = addr;
+      document.querySelectorAll(".addr-badge").forEach((b) => {
+        b.classList.toggle("active", Number(b.dataset.addr) === Number(addr));
+      });
+    }
+
+    function renderNodes(data) {
+      const box = document.getElementById("nodes-list");
+      const nodes = data.nodes || [];
+      document.getElementById("status-bar").textContent =
+        "Sensoren: " + nodes.length + " · Max-Scan: " + (data.max_sensors || "-");
+
+      if (!nodes.length) {
+        box.innerHTML = "<span class=\"muted\">Keine Modbus-Sensoren geladen. Bus scannen oder nach Neustart warten.</span>";
+        return;
+      }
+
+      let html = "<div class=\"table-responsive\"><table class=\"table table-sm mb-2\"><thead><tr>" +
+        "<th>Adresse</th><th>Temp</th><th>Feuchte</th><th>Leitf.</th></tr></thead><tbody>";
+      nodes.forEach((n) => {
+        html += "<tr>" +
+          "<td><span class=\"addr-badge\" data-addr=\"" + n.address + "\">" + n.address + "</span></td>" +
+          "<td>" + (n.temp != null ? n.temp + " °C" : "-") + "</td>" +
+          "<td>" + (n.hum != null ? n.hum + " %" : "-") + "</td>" +
+          "<td>" + (n.cond != null ? n.cond : "-") + "</td>" +
+          "</tr>";
+      });
+      html += "</tbody></table></div>";
+      box.innerHTML = html;
+      box.querySelectorAll(".addr-badge").forEach((b) => {
+        b.addEventListener("click", () => setOldFromBadge(b.dataset.addr));
+      });
+    }
+
+    async function loadNodes() {
+      const res = await fetch("/api/modbus", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      renderNodes(await res.json());
+    }
+
+    document.getElementById("refresh-btn").addEventListener("click", () => {
+      loadNodes().catch((e) => showAction("danger", "Laden fehlgeschlagen: " + e.message));
+    });
+
+    document.getElementById("scan-btn").addEventListener("click", async () => {
+      const btn = document.getElementById("scan-btn");
+      const max = document.getElementById("scan-max").value || 8;
+      btn.disabled = true;
+      btn.textContent = "Scanne…";
+      document.getElementById("scan-result").textContent = "Bitte warten…";
+      try {
+        const res = await fetch("/api/modbus/scan?max=" + encodeURIComponent(max), { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || ("HTTP " + res.status));
+        }
+        const found = data.found || [];
+        if (!found.length) {
+          document.getElementById("scan-result").innerHTML = "<span class=\"muted\">Keine Adressen gefunden.</span>";
+        } else {
+          let html = "<strong>Gefunden:</strong> ";
+          found.forEach((a) => {
+            html += "<span class=\"addr-badge\" data-addr=\"" + a + "\">" + a + "</span>";
+          });
+          document.getElementById("scan-result").innerHTML = html;
+          document.getElementById("scan-result").querySelectorAll(".addr-badge").forEach((b) => {
+            b.addEventListener("click", () => setOldFromBadge(b.dataset.addr));
+          });
+        }
+        showAction("success", "Scan fertig (" + found.length + " gefunden)");
+        await loadNodes();
+      } catch (e) {
+        showAction("danger", "Scan fehlgeschlagen: " + e.message);
+        document.getElementById("scan-result").textContent = "";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Scannen";
+      }
+    });
+
+    document.getElementById("change-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const oldAddr = document.getElementById("old-addr").value;
+      const newAddr = document.getElementById("new-addr").value;
+      if (!confirm("Adresse " + oldAddr + " wirklich auf " + newAddr + " aendern?")) return;
+
+      const btn = document.getElementById("change-btn");
+      btn.disabled = true;
+      try {
+        const qs = "old=" + encodeURIComponent(oldAddr) + "&new=" + encodeURIComponent(newAddr);
+        const res = await fetch("/api/modbus/change?" + qs, { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Schreiben fehlgeschlagen");
+        }
+        showAction("success", "Adresse geaendert: " + oldAddr + " → " + newAddr);
+        document.getElementById("old-addr").value = newAddr;
+        document.getElementById("new-addr").value = "";
+        await loadNodes();
+      } catch (e) {
+        showAction("danger", e.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    loadNodes().catch((e) => {
+      document.getElementById("status-bar").textContent = "Modbus-API nicht erreichbar";
+      showAction("danger", e.message);
+    });
+  </script>
+</body>
+</html>

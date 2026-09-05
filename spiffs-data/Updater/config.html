@@ -11,6 +11,13 @@
     .status-bar { font-size: 0.9rem; color: #555; }
     textarea.param-devices { font-family: monospace; min-height: 90px; }
     .field-readonly { background: #ececec; }
+    .tank-section {
+      border: 1px solid #dee2e6;
+      border-radius: 0.25rem;
+      padding: 1rem;
+      background: #fafafa;
+    }
+    .tank-fields.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -41,10 +48,18 @@
   <script>
     const groups = {
       mqtt: { title: "MQTT", ids: ["mqttServer", "mqttPort", "mqttUser", "mqttPW"] },
-      plantbot: { title: "PlantBot", ids: ["name", "no_Vents", "durationMax", "flow", "water", "minWater"] },
+      plantbot: {
+        title: "PlantBot",
+        ids: ["name", "no_Vents", "durationMax", "flow"],
+        tank: { checkboxId: "useTank", ids: ["water", "minWater"] }
+      },
       bluetooth: { title: "Bluetooth", ids: ["devices"] },
-      legacy: { title: "Legacy HTTP", ids: ["server"] },
       system: { title: "System", ids: ["version", "preRelease"] }
+    };
+
+    const checkboxHelp = {
+      preRelease: "Wenn aktiv, wird die Pre-Release-Zeile aus version.txt genutzt (Beta-Firmware).",
+      useTank: "Ultraschall/TOF fuer Fuellstand und Mindeststand-Pruefung beim Giessen."
     };
 
     let paramsById = {};
@@ -56,23 +71,34 @@
       return "text";
     }
 
-    function renderField(param) {
+    function isTankEnabled(params) {
+      const use = params.useTank;
+      const water = params.water;
+      if (!use) return false;
+      if (use.value === "1" || use.value === "true" || use.value === "on") return true;
+      if (use.value === "0" || use.value === "false") return false;
+      // Legacy ohne useTank: Tanktiefe > 0
+      return water && parseFloat(water.value || "0") > 0;
+    }
+
+    function renderField(param, options = {}) {
       const readonly = param.readonly ? "readonly" : "";
       const readonlyClass = param.readonly ? "field-readonly" : "";
       const id = param.id;
       const label = param.label || id;
       const value = param.value || "";
       const maxLength = param.maxLength || 255;
+      const help = options.help || checkboxHelp[id] || "";
 
       if (inputType(param) === "checkbox") {
-        const checked = (value === "1" || value === "true" || value === "on") ? "checked" : "";
+        const checked = options.checked != null
+          ? options.checked
+          : (value === "1" || value === "true" || value === "on");
         return `
           <div class="form-group form-check">
-            <input class="form-check-input" type="checkbox" id="${id}" name="${id}" value="1" ${checked}>
+            <input class="form-check-input" type="checkbox" id="${id}" name="${id}" value="1" ${checked ? "checked" : ""}>
             <label class="form-check-label" for="${id}">${label}</label>
-            <small class="form-text text-muted d-block">
-              Wenn aktiv, wird die Pre-Release-Zeile aus version.txt genutzt (Beta-Firmware).
-            </small>
+            ${help ? `<small class="form-text text-muted d-block">${help}</small>` : ""}
           </div>`;
       }
 
@@ -94,6 +120,30 @@
         </div>`;
     }
 
+    function renderTankSection(tank) {
+      const checkboxParam = paramsById[tank.checkboxId];
+      if (!checkboxParam) return "";
+
+      const enabled = isTankEnabled(paramsById);
+      const fields = tank.ids
+        .map(id => paramsById[id])
+        .filter(Boolean)
+        .map(p => renderField(p))
+        .join("");
+
+      return `
+        <div class="tank-section mt-2">
+          <h2 class="h6 mb-3">Tank</h2>
+          ${renderField(checkboxParam, { checked: enabled })}
+          <div class="tank-fields ${enabled ? "" : "hidden"}" id="tank-fields">
+            ${fields}
+            <small class="form-text text-muted">
+              Tiefe = Abstand Sensorboden bis Tankboden. Mindestfuellstand stoppt das Giessen bei zu wenig Wasser.
+            </small>
+          </div>
+        </div>`;
+    }
+
     function renderGroups(params) {
       paramsById = {};
       params.forEach(p => { paramsById[p.id] = p; });
@@ -103,20 +153,31 @@
 
       Object.keys(groups).forEach(groupKey => {
         const group = groups[groupKey];
-        const fields = group.ids
+        const fields = (group.ids || [])
           .map(id => paramsById[id])
           .filter(Boolean)
-          .map(renderField)
+          .map(p => renderField(p))
           .join("");
+        const tankHtml = group.tank ? renderTankSection(group.tank) : "";
 
-        if (!fields) return;
+        if (!fields && !tankHtml) return;
 
         container.innerHTML += `
           <div class="card">
             <div class="card-header">${group.title}</div>
-            <div class="card-body">${fields}</div>
+            <div class="card-body">${fields}${tankHtml}</div>
           </div>`;
       });
+
+      const useTank = document.getElementById("useTank");
+      if (useTank) {
+        useTank.addEventListener("change", () => {
+          const tankFields = document.getElementById("tank-fields");
+          if (tankFields) {
+            tankFields.classList.toggle("hidden", !useTank.checked);
+          }
+        });
+      }
     }
 
     function showStatus(type, message) {
@@ -124,6 +185,13 @@
       el.className = "alert alert-" + type;
       el.textContent = message;
       el.classList.remove("d-none");
+    }
+
+    function syncCheckbox(formData, id) {
+      const el = document.getElementById(id);
+      if (el && el.type === "checkbox") {
+        formData.set(id, el.checked ? "1" : "0");
+      }
     }
 
     async function loadConfig() {
@@ -156,10 +224,8 @@
       saveBtn.disabled = true;
 
       const formData = new FormData(event.target);
-      const preRelease = document.getElementById("preRelease");
-      if (preRelease && preRelease.type === "checkbox") {
-        formData.set("preRelease", preRelease.checked ? "1" : "0");
-      }
+      syncCheckbox(formData, "preRelease");
+      syncCheckbox(formData, "useTank");
       try {
         const response = await fetch("/config/save", {
           method: "POST",
@@ -181,7 +247,7 @@
 
     document.getElementById("restart-btn").addEventListener("click", () => {
       if (confirm("PlantBot jetzt neu starten?")) {
-        fetch("/HA/reset").finally(() => {
+        fetch("/restart").finally(() => {
           showStatus("warning", "Neustart angefordert...");
         });
       }

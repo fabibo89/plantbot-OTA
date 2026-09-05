@@ -19,12 +19,23 @@
       <div class="col-md-auto">
         <a class="btn btn-primary mb-2" href="/config">Einstellungen</a>
         <a class="btn btn-primary mb-2" href="/control">Steuerung</a>
+        <a class="btn btn-primary mb-2" href="/modbus">Modbus</a>
         <a class="btn btn-primary mb-2" href="/status">Status</a>
         <a class="btn btn-primary mb-2" href="/manager">Firmware &amp; Daten</a>
         <a class="btn btn-outline-secondary mb-2" href="/?button=WifiConfig">WLAN konfigurieren</a>
+        <button type="button" class="btn btn-outline-danger mb-2" id="restart-btn">Neustart</button>
       </div>
     </div>
   </div>
+
+  <script>
+    document.getElementById("restart-btn").addEventListener("click", function () {
+      if (!confirm("PlantBot jetzt neu starten?")) return;
+      fetch("/restart").finally(function () {
+        alert("Neustart angefordert…");
+      });
+    });
+  </script>
 
 </body>
 

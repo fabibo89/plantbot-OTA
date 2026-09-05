@@ -353,7 +353,7 @@ function confirmReboot() {
   rebootButton.disabled = true;
   statusElement.textContent = "Neustart angefordert...";
 
-  fetch("/HA/reset").catch(function() {
+  fetch("/restart").catch(function() {
     statusElement.textContent = "Neustart laeuft oder Verbindung getrennt.";
   });
 }
